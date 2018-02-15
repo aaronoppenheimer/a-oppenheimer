@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Hello World</title>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+  </head>
+  <body>
+  </body>
+  <script>
+
+    document.addEventListener("DOMContentLoaded", function(e) {
+
+
+var thewidth=500;
+var theheight=500;
+
+var svgContainer = d3.select("body").append("svg")
+                                    .attr("width", thewidth)
+                                    .attr("height", theheight)
+                                    .style("border", "1px solid black");
+
+var triangles = [
+    [ [thewidth/2,0], [thewidth,theheight], [0,theheight] ]
+]
+
+var lines = []
+
+function update(lines) {
+
+
+    var svgLines = svgContainer.selectAll("line")
+                              .data(lines)
+                              .enter()
+                              .append("line");
+
+    var svgLineAttributes = svgLines
+                            .attr("x1",function(d) {return d[0][0]; })
+                            .attr("y1", function(d) {return d[0][1]; })
+                            .attr("x2",function(d) {return d[1][0]; })
+                            .attr("y2", function(d) {return d[1][1]; })
+                            .attr("stroke-width", 2)
+                            .attr("stroke", "black");                        
+
+}
+
+function trytri(triangles) {
+    lines=[];
+    triangles.forEach(function(e) {
+        lines.push([e[0],e[1]]);
+        lines.push([e[1],e[2]]);
+        lines.push([e[2],e[0]]);
+    });
+    update(lines);
+}
+
+function split(triangles) {
+    newtri=[];
+    triangles.forEach(function(e) {
+        x1 = e[0][0];
+        y1 = e[0][1];
+        x2 = e[1][0];
+        y2 = e[1][1];
+        x3 = e[2][0];
+        y3 = e[2][1];
+
+        x12 = (x1 + x2) / 2;
+        y12 = (y1 + y2) / 2;
+        x23 = (x2 + x3) / 2;
+        y23 = (y2 + y3) / 2;
+        x31 = (x3 + x1) / 2;
+        y31 = (y3 + y1) / 2;
+
+        newtri.push([ [x1,y1], [x12,y12], [x31, y31] ]);
+        newtri.push([ [x31, y31], [x12, y12], [x23, y23] ]);
+        newtri.push([ [x12,y12], [x2,y2], [x23, y23] ]);
+        newtri.push([ [x31, y31], [x23, y23], [x3, y3] ]);
+
+    });
+    return newtri;
+}
+
+triangles=split(triangles);
+triangles=split(triangles);
+triangles=split(triangles);
+triangles=split(triangles);
+triangles=split(triangles);
+trytri(triangles);
+
+
+    });
+
+  </script>
+</html>
