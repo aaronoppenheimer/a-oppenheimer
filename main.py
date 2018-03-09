@@ -4,7 +4,8 @@ import webapp2
 from webapp2_extras import jinja2
 
 # constants
-IS_DEV = os.environ.get('SERVER_SOFTWARE').startswith('Dev')
+#IS_DEV = os.environ.get('SERVER_SOFTWARE').startswith('Dev')
+IS_DEV = True
 
 cache = {
     'generate': False
@@ -82,3 +83,11 @@ app = webapp2.WSGIApplication(debug=IS_DEV, routes=[
     # Main Routes
     webapp2.Route(r'/dev<page:.*>', DevHandler, name='dev')
 ])
+
+def main():
+    from paste import httpserver
+    httpserver.serve(app, host='127.0.0.1', port='8080')
+
+if __name__ == '__main__':
+    main()
+
