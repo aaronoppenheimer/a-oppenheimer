@@ -21,9 +21,9 @@ var svgContainer = d3.select("body").append("svg")
 
 // x, y, z
 var points = [
-    [0,0,0],
-    [thewidth,0,0],
-    [thewidth / 2, theheight, 0]
+    [thewidth / 2, theheight, 0],
+    [thewidth,0, 0],
+    [0,0,0]
 ];
 
 // indices for the two points, then indices of the two lines that split this one, then index of that midpoint, then "is edge"
@@ -35,15 +35,19 @@ var lines = [
 
 var oldlines = [];
 
+// three lines, and a code to tell us if this triangle points up (0) or down (1), which is used for shading.
 var triangles = [
-    [0,1,2]
+    [0,1,2,0]
 ];
 
-var angle = 30;
+var angle = 20;
 var theta = (2*3.1415) * angle / 360.0;
 var alpha = (3.1415/2) - theta;
 var round = 0;
-var bumpy = 400;
+var bumpy = 200;
+
+var runs = 2;
+var water = false;
 
 function update(thelines) {
 
@@ -56,9 +60,9 @@ function update(thelines) {
 
     var svgLineAttributes = svgLines
                             .attr("x1",function(d) {return points[d[0]][0]; })
-                            .attr("y1", function(d) {return theheight - findElevation(points[d[0]]); })
+                            .attr("y1", function(d) {return findElevation(points[d[0]]); })
                             .attr("x2",function(d) {return points[d[1]][0]; })
-                            .attr("y2", function(d) {return theheight - findElevation(points[d[1]]); })
+                            .attr("y2", function(d) {return findElevation(points[d[1]]); })
                             .attr("stroke-width", 2)
                             .attr("stroke", "black");                        
 
@@ -81,6 +85,59 @@ function pathdata(t) {
     return d;
 }
 
+
+// 1 if type == 1 and p3 is high OR type == 0 and p1 is low
+// 2 if type == 0 and p3 is high or type == 1 and p1 is low
+// 3 if type == 1 and p2 is high or type == 0 and p2 is low
+// 4 if type == 0 and p1 is high or type == 1 and p3 is low
+// 5 if type == 1 and p1 is high or type == 0 and p3 is low
+// 6 if type == 0 and p2 is high or type == 1 and p2 is low
+function figuretilt(t) {
+
+    type = t[3];
+    l1 = lines[t[0]];
+    l2 = lines[t[1]];
+    l3 = lines[t[2]];
+    p1 = points[l1[0]]
+    p2 = points[l2[0]]
+    p3 = points[l3[0]]
+    p1z = p1[2];
+    p2z = p2[2];
+    p3z = p3[2];
+    aveheight = (p1z + p2z + p3z) / 3;
+
+    dir = 0;
+
+    if (dir == 0 && type == 1 && p3z >= aveheight) { dir = 1};
+    if (dir == 0 && type == 1 && p2z >= aveheight) { dir = 3};
+    if (dir == 0 && type == 1 && p1z >= aveheight) { dir = 5};
+    if (dir == 0 && type == 1 && p1z <= aveheight) { dir = 2};
+    if (dir == 0 && type == 1 && p3z <= aveheight) { dir = 4};
+    if (dir == 0 && type == 1 && p2z <= aveheight) { dir = 6};
+
+    if (dir == 0 && type == 0 && p3z >= aveheight) { dir = 2};
+    if (dir == 0 && type == 0 && p1z >= aveheight) { dir = 4};
+    if (dir == 0 && type == 0 && p2z >= aveheight) { dir = 6};
+    if (dir == 0 && type == 0 && p1z <= aveheight) { dir = 1};
+    if (dir == 0 && type == 0 && p2z <= aveheight) { dir = 3};
+    if (dir == 0 && type == 0 && p3z <= aveheight) { dir = 5};
+
+    console.log("dir:"+dir+" type:"+type+" p1z:"+p1z+" p2z:"+p2z+" p3z:"+p3z+" aveheight:"+aveheight);
+
+    return dir;
+}
+
+var thecolors = [
+    d3.rgb(255,0,0),
+    d3.rgb(20,20,20),
+    d3.rgb(100,100,100),
+    d3.rgb(200,200,200),
+    d3.rgb(200,200,200),
+    d3.rgb(100,100,100),
+    d3.rgb(20,20,20)
+];
+console.log(thecolors);
+
 function fillcolor(t) {
     l1 = lines[t[0]];
     l2 = lines[t[1]];
@@ -90,18 +147,17 @@ function fillcolor(t) {
     p2 = points[l2[0]];
     p3 = points[l3[0]];
 
-    underwater = p1[2] <= 0 && p2[2] <= 0 && p3[2] <= 0;
+    underwater = water && p1[2] <= 0 && p2[2] <= 0 && p3[2] <= 0;
+
 
     aveheight = (p1[2] + p2[2] + p3[2]) / 3;
 
-    color = "blue";
+    color = d3.rgb(0,0,255);
+
+    tilt = figuretilt(t);
 
     if (!underwater) {
-        if (aveheight < 100) {
-            color = "green";
-        } else {
-            color = "brown";
-        }
+        color = thecolors[tilt];
     }
 
     return color;
@@ -171,24 +227,26 @@ function splitTri() {
         l9 = lines.push( [lines[l3][1], lines[l2][0], -1, -1, false] ) - 1;
 
         // now push four new triangles
-        newtri.push( [l1,l7,l6] );
-        newtri.push( [l2,l3,l9] );
-        newtri.push( [l4,l5,l8] );
-        newtri.push( [l7,l8,l9] );
+        mydir = d[3];
+
+        newtri.push( [l1,l7,l6, mydir] );
+        newtri.push( [l2,l3,l9, mydir] );
+        newtri.push( [l4,l5,l8, mydir] );
+        newtri.push( [l7,l8,l9, 1-mydir] );
     });
 
-    newtri.sort(function(a,b) {
-        l1a = lines[a[0]]
-        p1a = points[l1a[0]]
-        y1a = p1a[1]
+    // newtri.sort(function(a,b) {
+    //     l1a = lines[a[0]]
+    //     p1a = points[l1a[0]]
+    //     y1a = p1a[1]
 
-        l1b = lines[b[0]]
-        p1b = points[l1b[0]]
-        y1b = p1b[1]
+    //     l1b = lines[b[0]]
+    //     p1b = points[l1b[0]]
+    //     y1b = p1b[1]
 
-        return y1b - y1a;
+    //     return y1b - y1a;
 
-    });
+    // });
 
 
     triangles = newtri;
@@ -216,6 +274,9 @@ function splitLines() {
             p = (b / 2) - (Math.random() * (bumpy / Math.pow(1.5,round)));
         }
 
+        // p = 20 / Math.pow(1.5,round);
+
+
         newz = (p1[2] + p2[2])/2 + p;
 
         newp = [newx, newy, newz];
@@ -238,13 +299,18 @@ function sleep(ms) {
 }
 
 async function runit() {
-    for (var i = 0; i < 7; i++) {
+    // updateTri(triangles);
+    // await sleep(200);
+
+    for (var i = 0; i < runs; i++) {
         update([]);
         splitTri();
         // update(lines);
-        updateTri(triangles);
-        await sleep(500);
+        // updateTri(triangles);
+        // await sleep(200);
     }
+
+    updateTri(triangles);
 }
 
 runit();
