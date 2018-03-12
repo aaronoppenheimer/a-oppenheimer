@@ -19,14 +19,29 @@ var svgContainer = d3.select("body").append("svg")
                                     .attr("height", theheight)
                                     .style("border", "1px solid black");
 
-var triangles = [
-    [ [thewidth/2,0], [thewidth,theheight], [0,theheight] ]
-]
 
-var lines = []
+var points = [
+    [0,0],
+    [thewidth,0],
+    [thewidth / 2, (theheight/Math.sqrt(2))]
+];
+
+// indices for the two points, then indices of the two lines that split this one, then index of that midpoint
+var lines = [
+    [0,1,-1,-1],
+    [1,2,-1,-1],
+    [2,0,-1,-1]
+];
+
+var oldlines = [];
+
+var triangles = [
+    [0,1,2]
+];
+
+var theta = (2*3.1415) * 10/ 360;
 
 function update(lines) {
-
 
     var svgLines = svgContainer.selectAll("line")
                               .data(lines)
@@ -34,58 +49,86 @@ function update(lines) {
                               .append("line");
 
     var svgLineAttributes = svgLines
-                            .attr("x1",function(d) {return d[0][0]; })
-                            .attr("y1", function(d) {return d[0][1]; })
-                            .attr("x2",function(d) {return d[1][0]; })
-                            .attr("y2", function(d) {return d[1][1]; })
+                            .attr("x1",function(d) {return points[d[0]][0]; })
+                            .attr("y1", function(d) {return theheight - (Math.tan(theta) * points[d[0]][1]); })
+                            .attr("x2",function(d) {return points[d[1]][0]; })
+                            .attr("y2", function(d) {return theheight - (Math.tan(theta) * points[d[1]][1]); })
+                            .attr("x1",function(d) {return points[d[0]][0]; })
+                            .attr("y1", function(d) {return theheight - ( points[d[0]][1]); })
+                            .attr("x2",function(d) {return points[d[1]][0]; })
+                            .attr("y2", function(d) {return theheight - ( points[d[1]][1]); })
                             .attr("stroke-width", 2)
                             .attr("stroke", "black");                        
 
 }
 
-function trytri(triangles) {
-    lines=[];
-    triangles.forEach(function(e) {
-        lines.push([e[0],e[1]]);
-        lines.push([e[1],e[2]]);
-        lines.push([e[2],e[0]]);
+function splitTri() {
+    newtri = [];
+
+    splitLines();
+
+    // walk through the triangles, and for each one, replace it with four
+    triangles.forEach(function(d) {
+        ml1 = oldlines[d[0]];
+        ml2 = oldlines[d[1]];
+        ml3 = oldlines[d[2]];
+
+        // figure out the short lines
+        l1 = ml1[2];
+        l2 = ml1[3];
+        l3 = ml2[2];
+        l4 = ml2[3];
+        l5 = ml3[2];
+        l6 = ml3[3];
+
+        // now we have to make new lines for the middle tri
+        l7 = lines.push( [lines[l1][1], lines[l6][0], -1, -1] ) - 1;
+        l8 = lines.push( [lines[l6][0], lines[l3][1], -1, -1] ) - 1;
+        l9 = lines.push( [lines[l3][1], lines[l2][0], -1, -1] ) - 1;
+
+        // now push four new triangles
+        newtri.push( [l1,l7,l6] );
+        newtri.push( [l2,l3,l8] );
+        newtri.push( [l4,l5,l9] );
+        newtri.push( [l7,l8,l9] );
     });
-    update(lines);
+
+    triangles = newtri;
 }
 
-function split(triangles) {
-    newtri=[];
-    triangles.forEach(function(e) {
-        x1 = e[0][0];
-        y1 = e[0][1];
-        x2 = e[1][0];
-        y2 = e[1][1];
-        x3 = e[2][0];
-        y3 = e[2][1];
+// walk through the lines and replace them with new lines that are shorter.
+function splitLines() {
 
-        x12 = (x1 + x2) / 2;
-        y12 = (y1 + y2) / 2;
-        x23 = (x2 + x3) / 2;
-        y23 = (y2 + y3) / 2;
-        x31 = (x3 + x1) / 2;
-        y31 = (y3 + y1) / 2;
+    oldlines = lines;
+    lines = [];
 
-        newtri.push([ [x1,y1], [x12,y12], [x31, y31] ]);
-        newtri.push([ [x31, y31], [x12, y12], [x23, y23] ]);
-        newtri.push([ [x12,y12], [x2,y2], [x23, y23] ]);
-        newtri.push([ [x31, y31], [x23, y23], [x3, y3] ]);
+    oldlines.forEach(function(l) {
+        
+        p1 = points[l[0]];
+        p2 = points[l[1]];
+        newx = (p1[0] + p2[0])/2;
+        newy = (p1[1] + p2[1])/2;
+        newp = [newx, newy];
+        newpi = points.push(newp) - 1;
 
-    });
-    return newtri;
+        newl1 = [l[0], newpi,-1,-1];
+        newl2 = [newpi, l[1],-1,-1];
+
+        newl1i = lines.push(newl1) - 1;
+        newl2i = lines.push(newl2) - 1;
+
+        l[2] = newl1i;
+        l[3] = newl2i;
+
+    })
 }
 
-triangles=split(triangles);
-triangles=split(triangles);
-triangles=split(triangles);
-triangles=split(triangles);
-triangles=split(triangles);
-trytri(triangles);
 
+splitTri();
+splitTri();
+splitTri();
+update(lines);
+console.log(lines.length);
 
     });
 
